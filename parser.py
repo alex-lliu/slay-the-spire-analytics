@@ -44,3 +44,12 @@ if __name__ == "__main__":
     wins = sum(1 for r in runs if r.get('victory'))
     losses = len(runs) - wins
     print(f"Wins: {wins}, Losses: {losses}, Win rate: {wins/len(runs):.1%}")
+
+    early = [r for r in runs if r.get('ascension_level', 0) <= 3]
+    recent = [r for r in runs if r.get('ascension_level', 0) >= 7]
+
+    early_wr = sum(1 for r in early if r.get('victory')) / len(early)
+    recent_wr = sum(1 for r in recent if r.get('victory')) / len(recent)
+
+    print(f"Early runs (A0-A3): {len(early)} runs, {early_wr:.1%} win rate")
+    print(f"Recent runs (A7+): {len(recent)} runs, {recent_wr:.1%} win rate")
