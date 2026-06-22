@@ -8,13 +8,12 @@ load_dotenv()
 run_dir = Path(os.getenv("RUN_DIR"))
 
 
-def load_runs(run_dir: Path) -> list[dict]:
-    """Load and return all valid Ironclad runs from the given directory."""
+def load_runs(run_dir: Path) -> list[tuple[dict, str]]:
     runs = []
     for f in run_dir.glob('*.run'):
         data = json.loads(f.read_text())
         if is_valid_run(data):
-            runs.append(data)
+            runs.append((data, f.name))
     return runs
 
 
