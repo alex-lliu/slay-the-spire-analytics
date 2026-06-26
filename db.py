@@ -246,16 +246,20 @@ def ingest_run(conn: sqlite3.Connection, run: dict, filename: str = "") -> str:
 def ingest_all(runs: list[tuple[dict, str]], db_path: Path = DB_PATH) -> None:
     conn = get_connection(db_path)
     init_db(conn)
-    inserted, errors = 0, []
+    inserted, new, errors = 0, 0, []
     for run, filename in runs:
         try:
+            run_id = derive_run_id(run, filename)
+            exists = conn.execute("SELECT 1 FROM runs WHERE run_id = ?", (run_id,)).fetchone()
             ingest_run(conn, run, filename)
             inserted += 1
+            if not exists:
+                new += 1
         except Exception as exc:
             errors.append((filename, str(exc)))
     conn.commit()
     conn.close()
-    print(f"✓ Ingested {inserted} runs into {db_path}")
+    print(f"✓ Ingested {inserted} runs ({new} new) into {db_path}")
     if errors:
         print(f"✗ {len(errors)} error(s):")
         for fname, err in errors:
