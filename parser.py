@@ -10,7 +10,7 @@ run_dir = Path(os.getenv("RUN_DIR"))
 
 def load_runs(run_dir: Path) -> list[tuple[dict, str]]:
     runs = []
-    for f in run_dir.glob('*.run'):
+    for f in run_dir.rglob('*.run'):
         data = json.loads(f.read_text())
         if is_valid_run(data):
             runs.append((data, f.name))
@@ -18,9 +18,7 @@ def load_runs(run_dir: Path) -> list[tuple[dict, str]]:
 
 
 def is_valid_run(data: dict) -> bool:
-    """Filter out non-Ironclad runs and accidental starts."""
-    if data.get('character_chosen') != 'IRONCLAD':
-        return False
+    """Filter out accidental starts (no damage taken and floor 0)."""
     if data.get('floor_reached', 0) == 0 and not data.get('damage_taken'):
         return False
     return True
@@ -29,7 +27,7 @@ def is_valid_run(data: dict) -> bool:
 def scan_keys(run_dir: Path) -> None:
     """Print universal and optional fields across all run files."""
     all_keys = [set(json.loads(f.read_text()).keys())
-                for f in run_dir.glob('*.run')]
+                for f in run_dir.rglob('*.run')]
     universal = set.intersection(*all_keys)
     optional = set.union(*all_keys) - universal
     print("Universal fields:", sorted(universal))
