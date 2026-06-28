@@ -1,5 +1,7 @@
 data/runs/
 *.db
+*.db-shm
+*.db-wal
 __pycache__/
 .env
 *.run
