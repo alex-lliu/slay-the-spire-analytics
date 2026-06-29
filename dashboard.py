@@ -98,3 +98,81 @@ col1.metric("Total runs", total)
 col2.metric("Wins", int(wins_n))
 col3.metric("Overall win rate", f"{overall_wr:.1f}%")
 col4.metric(f"Last {WINDOW} runs", f"{recent_wr:.1f}%" if pd.notna(recent_wr) else "n/a")
+
+# ── HP survival curve ─────────────────────────────────────────────────────────
+
+st.header("HP survival curve")
+st.caption("Average HP% across all runs that reached each floor, split by outcome.")
+
+hp_rows = pd.read_sql("""
+    SELECT victory, current_hp_per_floor, max_hp_per_floor
+    FROM runs
+    WHERE current_hp_per_floor IS NOT NULL
+""", conn)
+
+import json
+
+# Expand each run's per-floor arrays into (floor, hp_pct) rows
+records = []
+for _, row in hp_rows.iterrows():
+    hp_arr  = json.loads(row["current_hp_per_floor"])
+    mhp_arr = json.loads(row["max_hp_per_floor"])
+    for i, (hp, mhp) in enumerate(zip(hp_arr, mhp_arr)):
+        if mhp and mhp > 0:
+            records.append({
+                "floor":   i + 1,
+                "hp_pct":  hp / mhp * 100,
+                "victory": row["victory"],
+            })
+
+hp_df = pd.DataFrame(records)
+
+avg_hp = (
+    hp_df.groupby(["floor", "victory"])["hp_pct"]
+    .agg(["mean", "sem"])
+    .reset_index()
+)
+
+fig2 = go.Figure()
+
+for victory, label, color in [(1, "Wins", "#59a14f"), (0, "Losses", "#e15759")]:
+    sub = avg_hp[avg_hp["victory"] == victory].sort_values("floor")
+    if sub.empty:
+        continue
+
+    # Shaded confidence band (±1 SEM)
+    fig2.add_trace(go.Scatter(
+        x=pd.concat([sub["floor"], sub["floor"][::-1]]),
+        y=pd.concat([sub["mean"] + sub["sem"], (sub["mean"] - sub["sem"])[::-1]]),
+        fill="toself",
+        fillcolor=color,
+        opacity=0.15,
+        line=dict(width=0),
+        showlegend=False,
+        hoverinfo="skip",
+    ))
+
+    fig2.add_trace(go.Scatter(
+        x=sub["floor"],
+        y=sub["mean"],
+        name=label,
+        line=dict(color=color, width=2),
+        hovertemplate="Floor %{x}<br>Avg HP%%: %{y:.1f}%%<extra>" + label + "</extra>",
+    ))
+
+# Boss floor markers
+for floor, label in [(16, "Act 1 boss"), (33, "Act 2 boss"), (50, "Act 3 boss")]:
+    fig2.add_vline(x=floor, line=dict(color="gray", dash="dot", width=1))
+    fig2.add_annotation(x=floor, y=102, text=label, showarrow=False,
+                        font=dict(size=10, color="gray"), xanchor="left")
+
+fig2.update_layout(
+    xaxis_title="Floor",
+    yaxis_title="Avg HP%",
+    yaxis=dict(range=[0, 105]),
+    hovermode="x unified",
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    height=450,
+)
+
+st.plotly_chart(fig2, use_container_width=True)
